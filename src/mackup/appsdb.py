@@ -18,7 +18,7 @@ class ApplicationsDatabase:
     def __init__(self) -> None:
         """Create a ApplicationsDatabase instance."""
         # Build the dict that will contain the properties of each application
-        self.apps: dict[str, dict[str, Union[str, set[str]]]] = {}
+        self.apps: dict[str, dict[str, Union[str, set[str], bool]]] = {}
 
         for config_file in ApplicationsDatabase.get_config_files():
             config: configparser.ConfigParser = configparser.ConfigParser(
@@ -40,6 +40,21 @@ class ApplicationsDatabase:
                 # Add the fancy name for the app, for display purpose
                 app_pretty_name: str = config.get("application", "name")
                 self.apps[app_name]["name"] = app_pretty_name
+
+                # Check if the app has native sync capability
+                has_native_sync: bool = False
+                sync_mechanism: str = ""
+                if config.has_section("sync_info"):
+                    if config.has_option("sync_info", "has_native_sync"):
+                        has_native_sync = config.getboolean(
+                            "sync_info", "has_native_sync",
+                        )
+                    if config.has_option("sync_info", "sync_mechanism"):
+                        sync_mechanism = config.get(
+                            "sync_info", "sync_mechanism",
+                        )
+                self.apps[app_name]["has_native_sync"] = has_native_sync
+                self.apps[app_name]["sync_mechanism"] = sync_mechanism
 
                 # Add the configuration files to sync
                 config_files: set[str] = set()
@@ -187,3 +202,38 @@ class ApplicationsDatabase:
             pretty_app_names.add(self.get_name(app_name))
 
         return pretty_app_names
+
+    def has_native_sync(self, name: str) -> bool:
+        """
+        Return whether an application has built-in sync.
+
+        Args:
+            name (str)
+
+        Returns:
+            bool
+        """
+        return bool(self.apps[name].get("has_native_sync", False))
+
+    def get_sync_mechanism(self, name: str) -> str:
+        """
+        Return the native sync mechanism description for an application.
+
+        Args:
+            name (str)
+
+        Returns:
+            str (empty string if no native sync)
+        """
+        value = self.apps[name].get("sync_mechanism", "")
+        assert isinstance(value, str)
+        return value
+
+    def get_native_sync_apps(self) -> set[str]:
+        """
+        Return the set of application names that have native sync.
+
+        Returns:
+            set of str.
+        """
+        return {name for name in self.apps if self.has_native_sync(name)}

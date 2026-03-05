@@ -21,6 +21,7 @@ Options:
   -n --dry-run              Show steps without executing.
   -v --verbose              Show additional details.
   -c --config-file=<path>   Specify custom config file path.
+  --include-native-sync     Include apps that have built-in sync mechanisms.
   --version                 Show version.
 
 Modes of action:
@@ -108,18 +109,37 @@ def main() -> None:
 
     verbose: bool = args["--verbose"]
 
+    # Override include_native_sync if CLI flag is set
+    if args["--include-native-sync"]:
+        mckp._config._include_native_sync = True
+
     # mackup list
     if args["list"]:
         # Display the list of supported applications
         mckp.check_for_usable_environment()
+        native_sync_apps = app_db.get_native_sync_apps()
         output: str = "Supported applications:\n"
         for app_name in sorted(app_db.get_app_names()):
-            output += f" - {app_name}\n"
+            suffix = ""
+            if app_name in native_sync_apps:
+                mechanism = app_db.get_sync_mechanism(app_name)
+                if mechanism:
+                    label = f" [native sync: {mechanism}]"
+                else:
+                    label = " [native sync]"
+                suffix = label
+            output += f" - {app_name}{suffix}\n"
         output += "\n"
+        native_count = len(native_sync_apps)
+        total_count = len(app_db.get_app_names())
         output += (
-            f"{len(app_db.get_app_names())} applications supported in "
-            f"Mackup v{VERSION}"
+            f"{total_count} applications supported in Mackup v{VERSION}"
         )
+        if native_count:
+            output += (
+                f"\n{native_count} applications have built-in sync"
+                " (excluded by default)"
+            )
         print(output)
 
     # mackup show <application>
@@ -131,6 +151,12 @@ def main() -> None:
         if requested_app_name not in app_db.get_app_names():
             sys.exit(f"Unsupported application: {requested_app_name}")
         print(f"Name: {app_db.get_name(requested_app_name)}")
+        if app_db.has_native_sync(requested_app_name):
+            mechanism = app_db.get_sync_mechanism(requested_app_name)
+            if mechanism:
+                print(f"Native sync: {mechanism}")
+            else:
+                print("Native sync: yes")
         print("Configuration files:")
         for file in app_db.get_files(requested_app_name):
             print(f" - {file}")

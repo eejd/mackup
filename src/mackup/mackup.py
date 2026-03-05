@@ -86,6 +86,9 @@ class Mackup:
         Get the list of applications that should be backed up by Mackup.
 
         It's the list of allowed apps minus the list of ignored apps.
+        Apps with native sync are excluded by default unless the user
+        explicitly includes them via [applications_to_sync] or sets
+        include_native_sync = true in [storage].
 
         Returns:
             (set) List of application names to back up
@@ -93,9 +96,18 @@ class Mackup:
         # Instantiate the app db
         app_db: appsdb.ApplicationsDatabase = appsdb.ApplicationsDatabase()
 
-        # If a list of apps to sync is specify, we only allow those
+        # If a list of apps to sync is specified, we only allow those
         # Or we allow every supported app by default
         apps_to_backup: set[str] = self._config.apps_to_sync or app_db.get_app_names()
+
+        # Remove apps with native sync unless overridden
+        if not self._config.include_native_sync:
+            native_sync_apps = app_db.get_native_sync_apps()
+            # Don't remove apps the user explicitly listed in [applications_to_sync]
+            explicitly_requested = self._config.apps_to_sync
+            for app_name in native_sync_apps:
+                if app_name not in explicitly_requested:
+                    apps_to_backup.discard(app_name)
 
         # Remove the specified apps to ignore
         for app_name in self._config.apps_to_ignore:
