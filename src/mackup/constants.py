@@ -40,6 +40,7 @@ CUSTOM_APPS_DIR_XDG: str = "mackup/applications"
 ENGINE_DROPBOX: str = "dropbox"
 ENGINE_FS: str = "file_system"
 ENGINE_GDRIVE: str = "google_drive"
+ENGINE_GIT: str = "git"
 ENGINE_ICLOUD: str = "icloud"
 
 DOCUMENTATION_URL: str = "https://github.com/lra/mackup/blob/master/doc/README.md"

@@ -165,6 +165,9 @@ def main() -> None:
     elif args["backup"]:
         mckp.check_for_usable_backup_env()
 
+        # Initialize git repository if using git backend
+        mckp.git_init_if_needed()
+
         # Create a backup of the files of each application
         for app_name in sorted(mckp.get_apps_to_backup()):
             app: ApplicationProfile = ApplicationProfile(
@@ -173,9 +176,19 @@ def main() -> None:
             print_app_header(app_name)
             app.copy_files_to_mackup_folder()
 
+        # Commit and push if using git backend
+        mckp.git_commit("backup", "all apps")
+        mckp.git_push()
+
     # mackup restore
     elif args["restore"]:
         mckp.check_for_usable_restore_env()
+
+        # Pull latest changes if using git backend
+        if not mckp.git_pull():
+            # User chose not to continue after failed pull
+            mckp.clean_temp_folder()
+            return
 
         # Recover a backup of the files of each application
         for app_name in sorted(mckp.get_apps_to_backup()):
@@ -188,11 +201,17 @@ def main() -> None:
         # Check the env where the command is being run
         mckp.check_for_usable_backup_env()
 
+        # Initialize git repository if using git backend
+        mckp.git_init_if_needed()
+
         # Create a link for each application
         for app_name in sorted(mckp.get_apps_to_backup()):
             app = ApplicationProfile(mckp, app_db.get_files(app_name), dry_run, verbose)
             print_app_header(app_name)
             app.link_install()
+
+        # Commit (no push for link install as no files changed)
+        mckp.git_commit("link-install", "all apps")
 
     # mackup link uninstall
     elif args["link"] and args["uninstall"]:
@@ -227,6 +246,9 @@ def main() -> None:
             )
             mackup_app.link_uninstall()
 
+            # Commit uninstall to git if using git backend
+            mckp.git_commit("uninstall", "all apps")
+
             # Delete the Mackup folder in Dropbox
             # Don't delete this as there might be other Macs that aren't
             # uninstalled yet
@@ -244,6 +266,9 @@ def main() -> None:
     elif args["link"]:
         # Check the env where the command is being run
         mckp.check_for_usable_restore_env()
+
+        # Initialize git repository if using git backend
+        mckp.git_init_if_needed()
 
         # Restore the Mackup config before any other config, as we might need
         # it to know about custom settings
@@ -267,6 +292,9 @@ def main() -> None:
             app = ApplicationProfile(mckp, app_db.get_files(app_name), dry_run, verbose)
             print_app_header(app_name)
             app.link()
+
+        # Commit linking operations to git if using git backend
+        mckp.git_commit("link", "all apps")
 
     # Delete the tmp folder
     mckp.clean_temp_folder()

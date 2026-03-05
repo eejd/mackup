@@ -12,6 +12,7 @@ from .constants import (
     ENGINE_DROPBOX,
     ENGINE_FS,
     ENGINE_GDRIVE,
+    ENGINE_GIT,
     ENGINE_ICLOUD,
     MACKUP_BACKUP_PATH,
     MACKUP_CONFIG_FILE,
@@ -60,6 +61,20 @@ class Config:
 
         # Get whether to include apps with native sync
         self._include_native_sync = self._parse_include_native_sync()
+
+        # Get git-specific configuration (only parsed if engine is git)
+        if self._engine == ENGINE_GIT:
+            self._git_auto_commit = self._parse_git_auto_commit()
+            self._git_auto_push = self._parse_git_auto_push()
+            self._git_remote = self._parse_git_remote()
+            self._git_branch = self._parse_git_branch()
+            self._git_commit_message_format = self._parse_git_commit_message_format()
+        else:
+            self._git_auto_commit = False
+            self._git_auto_push = False
+            self._git_remote = "origin"
+            self._git_branch = "main"
+            self._git_commit_message_format = "mackup: {action} {app_name}"
 
     @property
     def engine(self) -> str:
@@ -142,6 +157,66 @@ class Config:
             bool
         """
         return self._include_native_sync
+
+    @property
+    def git_auto_commit(self) -> bool:
+        """
+        Whether to automatically commit changes after backup operations.
+
+        Only applies when using ENGINE_GIT.
+
+        Returns:
+            bool
+        """
+        return self._git_auto_commit
+
+    @property
+    def git_auto_push(self) -> bool:
+        """
+        Whether to automatically push commits to remote after backup.
+
+        Only applies when using ENGINE_GIT.
+
+        Returns:
+            bool
+        """
+        return self._git_auto_push
+
+    @property
+    def git_remote(self) -> str:
+        """
+        The git remote name to push to (e.g., 'origin').
+
+        Only applies when using ENGINE_GIT.
+
+        Returns:
+            str
+        """
+        return self._git_remote
+
+    @property
+    def git_branch(self) -> str:
+        """
+        The git branch name to use for commits and pushes.
+
+        Only applies when using ENGINE_GIT.
+
+        Returns:
+            str
+        """
+        return self._git_branch
+
+    @property
+    def git_commit_message_format(self) -> str:
+        """
+        Format string for git commit messages.
+
+        Supports placeholders: {action}, {app_name}, {timestamp}.
+
+        Returns:
+            str
+        """
+        return self._git_commit_message_format
 
     def _setup_parser(
         self, filename: Optional[str] = None,
@@ -267,6 +342,7 @@ class Config:
             ENGINE_GDRIVE,
             ENGINE_ICLOUD,
             ENGINE_FS,
+            ENGINE_GIT,
         ]:
             raise ConfigError(f"Unknown storage engine: {engine}")
 
@@ -285,14 +361,15 @@ class Config:
             path = get_google_drive_folder_location()
         elif self.engine == ENGINE_ICLOUD:
             path = get_icloud_folder_location()
-        elif self.engine == ENGINE_FS:
+        elif self.engine in (ENGINE_FS, ENGINE_GIT):
             if self._parser.has_option("storage", "path"):
                 cfg_path = self._parser.get("storage", "path")
                 path = os.path.join(os.environ["HOME"], cfg_path)
             else:
+                engine_name = "git" if self.engine == ENGINE_GIT else "file_system"
                 raise ConfigError(
-                    "The required 'path' can't be found while"
-                    " the 'file_system' engine is used.",
+                    f"The required 'path' can't be found while"
+                    f" the '{engine_name}' engine is used.",
                 )
 
         return str(path)
@@ -369,6 +446,81 @@ class Config:
         if self._parser.has_option("storage", "include_native_sync"):
             return self._parser.getboolean("storage", "include_native_sync")
         return False
+
+    def _parse_git_auto_commit(self) -> bool:
+        """
+        Parse whether to automatically commit after backup operations.
+
+        Reads the [git] section for auto_commit option.
+        Defaults to True.
+
+        Returns:
+            bool
+        """
+        if self._parser.has_option("git", "auto_commit"):
+            return self._parser.getboolean("git", "auto_commit")
+        return True
+
+    def _parse_git_auto_push(self) -> bool:
+        """
+        Parse whether to automatically push commits to remote.
+
+        Reads the [git] section for auto_push option.
+        Defaults to False (safer default - user controls pushes).
+
+        Returns:
+            bool
+        """
+        if self._parser.has_option("git", "auto_push"):
+            return self._parser.getboolean("git", "auto_push")
+        return False
+
+    def _parse_git_remote(self) -> str:
+        """
+        Parse the git remote name.
+
+        Reads the [git] section for remote option.
+        Defaults to 'origin'.
+
+        Returns:
+            str
+        """
+        if self._parser.has_option("git", "remote"):
+            return str(self._parser.get("git", "remote"))
+        return "origin"
+
+    def _parse_git_branch(self) -> str:
+        """
+        Parse the git branch name.
+
+        Reads the [git] section for branch option.
+        Defaults to 'main'.
+
+        Returns:
+            str
+        """
+        if self._parser.has_option("git", "branch"):
+            return str(self._parser.get("git", "branch"))
+        return "main"
+
+    def _parse_git_commit_message_format(self) -> str:
+        """
+        Parse the git commit message format string.
+
+        Reads the [git] section for commit_message_format option.
+        Defaults to 'mackup: {action} {app_name}'.
+
+        Supports placeholders:
+        - {action}: 'backup', 'restore', 'uninstall', etc.
+        - {app_name}: name of the application
+        - {timestamp}: ISO 8601 timestamp
+
+        Returns:
+            str
+        """
+        if self._parser.has_option("git", "commit_message_format"):
+            return str(self._parser.get("git", "commit_message_format"))
+        return "mackup: {action} {app_name}"
 
 
 class ConfigError(Exception):
