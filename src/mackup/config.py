@@ -58,6 +58,9 @@ class Config:
         # Get the list of apps to allow
         self._apps_to_sync = self._parse_apps_to_sync()
 
+        # Get whether to include apps with native sync
+        self._include_native_sync = self._parse_include_native_sync()
+
     @property
     def engine(self) -> str:
         """
@@ -125,6 +128,20 @@ class Config:
             set. Set of application names to allow, lowercase
         """
         return set(self._apps_to_sync)
+
+    @property
+    def include_native_sync(self) -> bool:
+        """
+        Whether to include applications that have built-in sync mechanisms.
+
+        When False (default), apps flagged with has_native_sync=true in their
+        .cfg files are excluded unless explicitly listed in
+        [applications_to_sync].
+
+        Returns:
+            bool
+        """
+        return self._include_native_sync
 
     def _setup_parser(
         self, filename: Optional[str] = None,
@@ -338,6 +355,20 @@ class Config:
             apps_to_sync = set(self._parser.options(section_title))
 
         return apps_to_sync
+
+    def _parse_include_native_sync(self) -> bool:
+        """
+        Parse whether apps with native sync should be included.
+
+        Reads the [storage] section for include_native_sync option.
+        Defaults to False (skip apps with native sync).
+
+        Returns:
+            bool
+        """
+        if self._parser.has_option("storage", "include_native_sync"):
+            return self._parser.getboolean("storage", "include_native_sync")
+        return False
 
 
 class ConfigError(Exception):
