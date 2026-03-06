@@ -1,66 +1,54 @@
 #!/bin/bash
-# Script to update mackup MacPorts port with latest source tarball and checksums
+# Rebuild mackup MacPorts port: tarball → checksums → Portfile → portindex → install
 
 set -e
 
-# Configuration
-VERSION="0.10.2"
 REPO_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
-DIST_DIR="${REPO_DIR}/dist"
-PORTFILE_DIR="/opt/macports-ports-local/devel/mackup"
+VERSION=$(grep '^version' "${REPO_DIR}/pyproject.toml" | head -1 | sed 's/.*= *"\(.*\)"/\1/')
+PORTFILE_DIR="/opt/macports-ports-local/sysutils/mackup"
 PORTFILE="${PORTFILE_DIR}/Portfile"
 FILES_DIR="${PORTFILE_DIR}/files"
+TARBALL="${FILES_DIR}/mackup-${VERSION}.tar.gz"
+LOCAL_PORTS_DIR="/opt/macports-ports-local"
 
-echo "Updating mackup MacPorts port..."
-echo "Repository: $REPO_DIR"
-echo "Version: $VERSION"
+echo "==> mackup MacPorts port update"
+echo "    Version:  $VERSION"
+echo "    Portfile: $PORTFILE"
 
-# Create dist directory if it doesn't exist
-mkdir -p "$DIST_DIR"
-
-# Clean old tarball
-if [ -f "${DIST_DIR}/mackup-${VERSION}.tar.gz" ]; then
-    echo "Removing old tarball..."
-    rm "${DIST_DIR}/mackup-${VERSION}.tar.gz"
-fi
-
-# Create temporary staging directory
-STAGING_DIR=$(mktemp -d)
-trap "rm -rf $STAGING_DIR" EXIT
-
-echo "Creating tarball..."
-mkdir -p "${STAGING_DIR}/mackup-${VERSION}"
-rsync -av --exclude=.git --exclude=__pycache__ --exclude=.pytest_cache --exclude=.mypy_cache --exclude=dist "${REPO_DIR}/" "${STAGING_DIR}/mackup-${VERSION}/" > /dev/null 2>&1
-
-cd "$STAGING_DIR"
-tar czf "${DIST_DIR}/mackup-${VERSION}.tar.gz" "mackup-${VERSION}/"
-
-# Generate checksums
-echo "Generating checksums..."
-cd "$DIST_DIR"
-RMD160=$(openssl dgst -rmd160 "mackup-${VERSION}.tar.gz" | awk '{print $NF}')
-SHA256=$(sha256sum "mackup-${VERSION}.tar.gz" | awk '{print $1}')
-
-echo "RMD160: $RMD160"
-echo "SHA256: $SHA256"
-
-# Copy tarball to port files directory
-echo "Copying tarball to port directory..."
+# 1. Generate tarball from git HEAD
+echo "==> Creating tarball from git HEAD..."
 mkdir -p "$FILES_DIR"
-cp "${DIST_DIR}/mackup-${VERSION}.tar.gz" "$FILES_DIR/"
+git -C "$REPO_DIR" archive --prefix="mackup-${VERSION}/" --format=tar.gz HEAD \
+    -o "$TARBALL"
+echo "    Created: $TARBALL ($(du -sh "$TARBALL" | cut -f1))"
 
-# Update Portfile checksums if it exists
-if [ -f "$PORTFILE" ]; then
-    echo "Updating Portfile checksums..."
-    
-    # Use perl for cross-platform sed compatibility
-    perl -i -pe "s/checksums\s+rmd160\s+\w+.*?sha256\s+\w+/checksums           rmd160  $RMD160 \\\\\n                    sha256  $SHA256/s" "$PORTFILE"
-    
-    echo "Portfile updated successfully"
-fi
+# 2. Calculate checksums
+echo "==> Calculating checksums..."
+RMD160=$(openssl dgst -rmd160 "$TARBALL" | awk '{print $NF}')
+SHA256=$(openssl dgst -sha256 "$TARBALL" | awk '{print $NF}')
+SIZE=$(stat -f%z "$TARBALL" 2>/dev/null || stat -c%s "$TARBALL")
+echo "    rmd160  $RMD160"
+echo "    sha256  $SHA256"
+echo "    size    $SIZE"
+
+# 3. Update checksums in Portfile (also sync the canonical copy in packaging/)
+echo "==> Updating Portfile checksums..."
+for PF in "$PORTFILE" "${REPO_DIR}/packaging/macports/Portfile"; do
+    if [ -f "$PF" ]; then
+        perl -i -0pe \
+            "s|(checksums\s+rmd160\s+)\w+(\s*\\\\\s*\n\s*sha256\s+)\w+(\s*\\\\\s*\n\s*size\s+)\d+|\${1}${RMD160}\${2}${SHA256}\${3}${SIZE}|" \
+            "$PF"
+    fi
+done
+echo "    Done"
+
+# 4. Rebuild PortIndex
+echo "==> Rebuilding PortIndex..."
+/opt/local/bin/portindex "$LOCAL_PORTS_DIR" 2>&1 | grep -v "^$"
+
+# 5. Install
+echo "==> Installing port..."
+sudo /opt/local/bin/port install mackup
 
 echo ""
-echo "✓ Tarball created: ${DIST_DIR}/mackup-${VERSION}.tar.gz"
-echo "✓ Checksums generated and Portfile updated"
-echo ""
-echo "Next step: sudo port install mackup @${VERSION}"
+echo "==> mackup @${VERSION} installed successfully"
