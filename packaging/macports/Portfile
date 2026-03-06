@@ -1,0 +1,71 @@
+# -*- coding: utf-8; mode: tcl; tab-width: 4; indent-tabs-mode: nil; c-basic-offset: 4 -*- vim:fenc=utf-8:ft=tcl:et:sw=4:ts=4:sts=4
+
+PortSystem          1.0
+PortGroup           python 1.0
+PortGroup           github 1.0
+
+# Set to install from development branch
+# Options: "master" (development), "feature/*" (testing)
+set git_branch      "master"
+
+github.setup        eejd mackup 0.10.2 v
+github.tarball_from archive
+revision            0
+name                py-mackup
+
+# Override to use specific branch instead of tag
+fetch.type          git
+git.url             https://github.com/eejd/mackup.git
+git.branch          ${git_branch}
+
+categories-append   sysutils
+platforms           {darwin any}
+supported_archs     noarch
+license             GPL-3+
+maintainers         {@eejd github.com/eejd}
+
+description         Backup and keep your application settings in sync
+long_description    Mackup keeps your application settings in sync. With it, \
+                    you can backup your application settings to any cloud \
+                    storage (Dropbox, Google Drive, iCloud, etc.) and restore \
+                    them on any other computer. This is a development version \
+                    with native sync detection feature.
+
+homepage            https://github.com/eejd/mackup
+
+python.versions     313 314
+python.pep517       yes
+python.pep517_backend \
+                    hatch
+
+if {${name} ne ${subport}} {
+    depends_lib-append \
+                    port:py${python.version}-docopt-ng
+
+    depends_test-append \
+                    port:py${python.version}-pytest \
+                    port:py${python.version}-pytest-cov
+
+    test.run        yes
+    test.cmd        ${python.bin} -m pytest
+    test.target     
+    test.env-append PYTHONPATH=${worksrcpath}/src
+
+    notes "
+    This is a development version with native sync detection feature.
+    To use, create ~/.mackup.cfg and configure your storage backend.
+    
+    New features:
+    - Native sync detection for apps with built-in cloud sync
+    - --include-native-sync flag to override default filtering
+    - Enhanced 'mackup list' and 'mackup show' commands
+    
+    To exclude native-sync apps (default):
+        mackup backup
+    
+    To include them:
+        mackup backup --include-native-sync
+    "
+
+    livecheck.type  none
+}

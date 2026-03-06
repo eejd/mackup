@@ -1,0 +1,17 @@
+# Ignore build artifacts and temp files
+*.pyc
+__pycache__/
+*.egg-info/
+dist/
+build/
+
+# MacPorts specific
+work/
+*.o
+*.a
+
+# System files
+.DS_Store
+*.swp
+*.swo
+*~

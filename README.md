@@ -30,6 +30,7 @@ Backup and keep your application settings in sync.
   - [What platforms are supported](#what-platforms-are-supported)
   - [What's up with the weird name](#whats-up-with-the-weird-name)
   - [Architecture](#architecture)
+  - [Packaging](#packaging)
   - [Where can I find more information](#where-can-i-find-more-information)
 
 ## Quickstart
@@ -865,6 +866,41 @@ Want to understand how Mackup works internally? Check out the
 
 Perfect for contributors who want to understand the codebase or users
 curious about how their configs are managed.
+
+## Packaging
+
+### MacPorts (macOS)
+
+Install the latest development version with MacPorts:
+
+```bash
+# Install
+sudo port install py313-mackup
+
+# Or for Python 3.14
+sudo port install py314-mackup
+
+# View installed version
+mackup-3.13 --version
+```
+
+The MacPorts Portfile is included in this repository at
+[`packaging/macports/Portfile`](packaging/macports/README.md)
+with both new features (native sync filtering and git backend) enabled.
+
+See [Packaging Documentation](packaging/macports/README.md) for more details on:
+- Building from source
+- Using development/feature branches
+- Updating and maintaining the Portfile
+- Contributing to official MacPorts
+
+### Other Package Managers
+
+Mackup is available through various package managers:
+
+- **Homebrew** (macOS): `brew install mackup`
+- **pip** (any OS): `pip install mackup`
+- **APT** (Ubuntu/Debian): `apt install mackup`
 
 ## Where can I find more information
 
