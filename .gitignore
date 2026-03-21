@@ -16,3 +16,6 @@ coverage.xml
 *.cover
 .hypothesis/
 .pytest_cache/
+
+# macOS system files
+.DS_Store
