@@ -31,9 +31,9 @@ master_sites        file:///opt/macports-ports-local/sysutils/mackup/files/
 distname            mackup-${version}
 extract.suffix      .tar.gz
 
-checksums           rmd160  e407c32a491663532320db284639c317dc1975d9 \
-                    sha256  8d3c1833ee598775278909b4aaa7b4f76bd5391b628c86d608283d904058aa8c \
-                    size    172397
+checksums           rmd160  944dafd036a3301dd9e919c44daca9d3215fd3a2 \
+                    sha256  4fc77bd3a0a25d4286ca2a4caf3ecfe42717ea661be8c3631167c446a4368621 \
+                    size    172424
 
 python.default_version 313
 python.pep517_backend  hatch
